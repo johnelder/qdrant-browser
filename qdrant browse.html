@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="https://api.iconify.design/mdi:database.svg">
+
+  <title>Qdrant Browser</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 1rem;
+    }
+
+    form#create-collection-form {
+      margin-bottom: 1.5rem;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      padding: 0.3rem 0.5rem;
+      font-size: 1rem;
+    }
+
+    input[type="text"] {
+      width: 250px;
+    }
+
+    input[type="number"] {
+      width: 80px;
+      margin-left: 0.5rem;
+    }
+
+    button {
+      padding: 0.3rem 0.8rem;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-left: 0.5rem;
+    }
+
+    .points {
+      margin-left: 1.5rem;
+      font-family: monospace;
+    }
+
+    .payload {
+      margin-left: 1rem;
+      white-space: pre-wrap;
+    }
+
+    .vector {
+      color: gray;
+      font-size: 0.9em;
+    }
+
+    summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: bold;
+      cursor: pointer;
+      position: relative;
+      padding-left: 1.2em;
+      /* space for custom marker */
+    }
+
+    /* Hide default marker in Chrome, Edge, Safari */
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    /* Hide default marker in Firefox */
+    details>summary {
+      list-style-type: none;
+    }
+
+    /* Custom marker */
+    summary::before {
+      content: '➤';
+      position: absolute;
+      left: 0em;
+      top: 50%;
+      transform: translateY(-50%) rotate(0deg);
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      transition: transform 0.2s;
+      transform-origin: center center;
+      /* Ensures rotation is centered */
+      font-size: 1em;
+      line-height: 1;
+    }
+
+    details[open]>summary::before {
+      transform: translateY(-50%) rotate(90deg);
+    }
+
+    .loading {
+      color: gray;
+      font-style: italic;
+    }
+
+    .point-block {
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px dashed #ccc;
+    }
+
+    .collection-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .delete-btn {
+      margin-left: 1rem;
+      background: #c62828;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    .delete-btn:hover {
+      background: #b71c1c;
+    }
+
+    #message {
+      margin-left: 1rem;
+      font-weight: bold;
+    }
+
+    /* Modal overlay styles (shared by both modals) */
+    #modal-overlay,
+    #settings-modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 2000;
+    }
+
+    /* Modal content styles (shared by both modals) */
+    #modal-content,
+    #settings-modal-content {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 8px;
+      max-width: 600px;
+      margin: 10vh auto 0 auto;
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+      position: relative;
+      animation: modal-fade-in 0.2s;
+    }
+
+    /* Modal close button (shared) */
+    #modal-close,
+    #settings-modal-close {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: #c62828;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1.2em;
+      cursor: pointer;
+      padding: 0 0.6em;
+      line-height: 1.2;
+      transition: background 0.2s;
+    }
+
+    #modal-close:hover,
+    #settings-modal-close:hover {
+      background: #b71c1c;
+    }
+
+    /* Modal header and text (shared) */
+    #modal-header,
+    #settings-modal-content h2 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-size: 1.3em;
+    }
+
+    #modal-text {
+      white-space: pre-wrap;
+      font-size: 1em;
+      margin-top: 0;
+    }
+
+    /* Settings form input/button */
+    #settings-form input[type="text"] {
+      width: 100%;
+      margin-top: 0.5em;
+      margin-bottom: 1em;
+      font-size: 1em;
+      padding: 0.3em 0.5em;
+    }
+
+    #settings-form button[type="submit"] {
+      background: #1976d2;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.4em 1.2em;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    #settings-form button[type="submit"]:hover {
+      background: #1251a3;
+    }
+
+    /* Dark mode for both modals */
+    body.dark-mode #modal-content,
+    body.dark-mode #settings-modal-content {
+      background: #232323;
+      color: #eee;
+      border-color: #333;
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.7);
+    }
+
+    body.dark-mode #settings-form input[type="text"] {
+      background: #232323;
+      color: #eee;
+      border-color: #444;
+    }
+
+    body.dark-mode #settings-form button[type="submit"] {
+      background: #1976d2;
+      color: #fff;
+    }
+
+    body.dark-mode #settings-form button[type="submit"]:hover {
+      background: #1251a3;
+    }
+
+    /* Modal fade-in animation */
+    @keyframes modal-fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Position theme, settings, and autorefresh buttons */
+    .theme-toggle {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 2000;
+      color: #333;
+      transition: color 0.2s;
+    }
+
+    #settings-toggle {
+      right: 4.5rem;
+    }
+
+
+
+    /* Margin below search form */
+    #search-form {
+      margin-bottom: 1rem;
+    }
+
+    /* Style for search input */
+    #search-input {
+      width: 300px;
+      font-size: 1em;
+      padding: 0.3em;
+    }
+
+    /* Margin above Save button in settings modal */
+    #settings-form .settings-form-actions {
+      margin-top: 1.2em;
+    }
+
+    /* Dark mode for both modals */
+    body.dark-mode #modal-content,
+    body.dark-mode #settings-modal-content {
+      background: #232323;
+      color: #eee;
+      border-color: #333;
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.7);
+    }
+
+    body.dark-mode #settings-form input[type="text"] {
+      background: #232323;
+      color: #eee;
+      border-color: #444;
+    }
+
+    body.dark-mode #settings-form button[type="submit"] {
+      background: #1976d2;
+      color: #fff;
+    }
+
+    body.dark-mode #settings-form button[type="submit"]:hover {
+      background: #1251a3;
+    }
+
+    /* Modal fade-in animation */
+    @keyframes modal-fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .theme-toggle {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 2000;
+      color: #333;
+      transition: color 0.2s;
+    }
+
+    .theme-toggle:hover {
+      color: #1976d2;
+    }
+
+    body.dark-mode {
+      background-color: #222;
+      color: #eee;
+    }
+
+    body.dark-mode .points,
+    body.dark-mode .payload,
+    body.dark-mode #modal-content,
+    body.dark-mode #modal-text {
+      background: #232323 !important;
+      color: #eee !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode input,
+    body.dark-mode button,
+    body.dark-mode select {
+      background: #232323;
+      color: #eee;
+      border-color: #444;
+    }
+
+    body.dark-mode .delete-btn {
+      background: #a31515;
+      color: #fff;
+    }
+
+    body.dark-mode .delete-btn:hover {
+      background: #d32f2f;
+    }
+
+    body.dark-mode .highlight {
+      background: #ffe066;
+      color: #222;
+    }
+
+    body.dark-mode #modal-content {
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.7);
+    }
+
+    .autorefresh-panel {
+      position: fixed;
+      top: 0.5rem;
+      right: 8rem;
+      z-index: 2000;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 0.5em 1em;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+      display: flex;
+      align-items: center;
+      gap: 0.7em;
+    }
+
+    .autorefresh-panel label {
+      font-size: 1em;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .autorefresh-panel input[type="checkbox"] {
+      vertical-align: middle;
+      margin-right: 0.4em;
+    }
+
+    .autorefresh-panel input[type="number"] {
+      width: 3em;
+      font-size: 1em;
+    }
+
+    .autorefresh-panel span {
+      font-size: 0.95em;
+    }
+
+    body.dark-mode .autorefresh-panel {
+      background: rgba(40, 40, 40, 0.97);
+      color: #eee;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Theme toggle button -->
+  <button id="theme-toggle" class="theme-toggle" title="Toggle light/dark mode">☾</button>
+  <!-- Settings button -->
+  <button id="settings-toggle" class="theme-toggle" title="Settings">⚙</button>
+
+  <!-- Auto-refresh toggle -->
+  <div class="autorefresh-panel">
+    <label>
+      <input type="checkbox" id="autorefresh-toggle">
+      Auto-refresh
+    </label>
+    <input type="number" id="autorefresh-interval" value="10" min="2" max="3600">
+    <span>sec</span>
+  </div>
+
+  <h1>Qdrant Browser</h1>
+
+  <!-- Search form -->
+  <form id="search-form">
+    <input id="search-input" type="text" placeholder="Search all fields..." />
+    <button type="submit">Search</button>
+    <button type="button" id="clear-search">Clear</button>
+  </form>
+
+  <form id="create-collection-form">
+    <label for="collection-name">New Collection Name:</label>
+    <input id="collection-name" type="text" required placeholder="Enter collection name" />
+
+    <label for="vector-size">Vector Size:</label>
+    <input id="vector-size" type="number" min="1" value="1536" required />
+
+    <button type="submit">Create</button>
+    <span id="message"></span>
+  </form>
+
+  <div id="app">
+    <p class="loading">Loading collections...</p>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal-overlay">
+    <div id="settings-modal-content">
+      <button id="settings-modal-close">&times;</button>
+      <h2>Settings</h2>
+      <form id="settings-form">
+        <label for="qdrant-url"><strong>Qdrant URL:</strong></label>
+        <input id="qdrant-url" type="text" required placeholder="http://localhost:6333" />
+        <div class="settings-form-actions">
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-overlay">
+    <div id="modal-content">
+      <button id="modal-close">&times;</button>
+      <h2 id="modal-header"></h2>
+      <pre id="modal-text"></pre>
+    </div>
+  </div>
+
+  <script>
+    // Settings modal logic
+    const settingsToggle = document.getElementById("settings-toggle");
+    const settingsModalOverlay = document.getElementById("settings-modal-overlay");
+    const settingsModalClose = document.getElementById("settings-modal-close");
+    const settingsForm = document.getElementById("settings-form");
+    const qdrantUrlInput = document.getElementById("qdrant-url");
+
+    // Load Qdrant URL from localStorage or use default
+    let API_BASE = localStorage.getItem("qdrant-url") || "http://localhost:6333";
+    qdrantUrlInput.value = API_BASE;
+
+    settingsToggle.onclick = () => {
+      qdrantUrlInput.value = API_BASE;
+      settingsModalOverlay.style.display = "block";
+    };
+    settingsModalClose.onclick = () => {
+      settingsModalOverlay.style.display = "none";
+    };
+    window.addEventListener("click", (event) => {
+      if (event.target === settingsModalOverlay) {
+        settingsModalOverlay.style.display = "none";
+      }
+    });
+    settingsForm.onsubmit = (e) => {
+      e.preventDefault();
+      API_BASE = qdrantUrlInput.value.trim().replace(/\/+$/, "");
+      localStorage.setItem("qdrant-url", API_BASE);
+      settingsModalOverlay.style.display = "none";
+      loadUI();
+    };
+
+    const app = document.getElementById("app");
+    const form = document.getElementById("create-collection-form");
+    const message = document.getElementById("message");
+    const modalOverlay = document.getElementById("modal-overlay");
+    const modalText = document.getElementById("modal-text");
+    const modalClose = document.getElementById("modal-close");
+
+    async function fetchCollections() {
+      const res = await fetch(`${API_BASE}/collections`);
+      const data = await res.json();
+      return data.result.collections.map(c => c.name);
+    }
+
+    async function fetchVectors(collectionName) {
+      const res = await fetch(`${API_BASE}/collections/${collectionName}/points/scroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          limit: 100,
+          with_vector: true,
+          with_payload: true
+        })
+      });
+      const data = await res.json();
+      return data.result.points;
+    }
+
+    async function deletePoint(collection, pointId, blockEl) {
+      const confirmDelete = confirm(`Delete point "${pointId}" from collection "${collection}"?`);
+      if (!confirmDelete) return;
+
+      const res = await fetch(`${API_BASE}/collections/${collection}/points/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points: [pointId] })
+      });
+
+      const result = await res.json();
+      if (result.status === "ok") {
+        blockEl.remove();
+        alert(`Point ${pointId} deleted.`);
+      } else {
+        alert("Failed to delete point.");
+      }
+    }
+
+    async function deleteCollection(collection, containerEl) {
+      const confirmDelete = confirm(`Are you sure you want to delete collection "${collection}"? This cannot be undone.`);
+      if (!confirmDelete) return;
+
+      const res = await fetch(`${API_BASE}/collections/${collection}`, {
+        method: "DELETE"
+      });
+
+      const result = await res.json();
+      if (result.status === "ok") {
+        containerEl.remove();
+        alert(`Collection "${collection}" deleted.`);
+      } else {
+        alert("Failed to delete collection.");
+      }
+    }
+
+    function formatPayload(payload) {
+      if (!payload || typeof payload !== "object") return "(no payload)";
+      return Object.entries(payload)
+        .map(([key, value]) => `  ${key}: ${JSON.stringify(value)}`)
+        .join("\n");
+    }
+
+    // Simple client-side substring search
+    let lastSearch = "";
+
+    document.getElementById("search-form").onsubmit = function (e) {
+      e.preventDefault();
+      lastSearch = document.getElementById("search-input").value.trim().toLowerCase();
+      filterPoints();
+      // Expand all collections when searching
+      document.querySelectorAll("#app details").forEach(d => d.open = true);
+    };
+    document.getElementById("clear-search").onclick = function () {
+      document.getElementById("search-input").value = "";
+      lastSearch = "";
+      filterPoints();
+    };
+
+    function pointMatchesSearch(pt, search) {
+      if (!search) return true;
+      // Search all fields: id, vector, and all payload fields
+      let fields = [pt.id];
+      if (pt.vector) fields.push(pt.vector.join(","));
+      if (pt.payload) {
+        for (const [k, v] of Object.entries(pt.payload)) {
+          fields.push(k);
+          if (typeof v === "string" || typeof v === "number") {
+            fields.push(String(v));
+          } else {
+            fields.push(JSON.stringify(v));
+          }
+        }
+      }
+      return fields.some(val => String(val).toLowerCase().includes(search));
+    }
+
+    function filterPoints() {
+      document.querySelectorAll(".point-block").forEach(block => {
+        const pt = block.__pointData;
+        if (!lastSearch || pointMatchesSearch(pt, lastSearch)) {
+          block.style.display = "";
+          // Re-highlight
+          block.querySelector(".payload").innerHTML = highlightTerm(formatPayload(pt.payload), lastSearch);
+          block.querySelector(".vector").innerHTML = highlightTerm(
+            `Vector: [${pt.vector.slice(0, 5).join(", ")}${pt.vector.length > 5 ? ", ..." : ""}]`,
+            lastSearch
+          );
+          block.querySelector("div").innerHTML = `<strong>ID:</strong> ${highlightTerm(pt.id, lastSearch)}`;
+        } else {
+          block.style.display = "none";
+        }
+      });
+    }
+
+    function createTreeNode(collection, points) {
+      const wrapper = document.createElement("div");
+
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+
+      const title = document.createElement("span");
+      title.textContent = collection;
+
+      const viewConfigBtn = document.createElement("button");
+      viewConfigBtn.className = "delete-btn";
+      viewConfigBtn.style.background = "#1976d2";
+      viewConfigBtn.style.marginLeft = "0.5rem";
+      viewConfigBtn.textContent = "View Config";
+      viewConfigBtn.onclick = () => viewCollectionConfig(collection);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "delete-btn";
+      deleteBtn.textContent = "Delete Collection";
+      deleteBtn.onclick = () => deleteCollection(collection, wrapper);
+
+      const buttonsWrapper = document.createElement("div");
+      buttonsWrapper.className = "collection-buttons";
+
+      summary.appendChild(title);
+      buttonsWrapper.appendChild(viewConfigBtn);
+      buttonsWrapper.appendChild(deleteBtn);
+      summary.appendChild(buttonsWrapper);
+      details.appendChild(summary);
+      wrapper.appendChild(details);
+
+      const list = document.createElement("div");
+      list.className = "points";
+
+      points.forEach(pt => {
+        const block = document.createElement("div");
+        block.className = "point-block";
+        block.__pointData = pt; // Store for filtering
+
+        const payload = document.createElement("pre");
+        payload.className = "payload";
+        const payloadText = formatPayload(pt.payload);
+        payload.innerHTML = highlightTerm(payloadText, lastSearch);
+        block.appendChild(payload);
+
+        const vector = document.createElement("div");
+        vector.className = "vector";
+        const vectorText = `Vector: [${pt.vector.slice(0, 5).join(", ")}${pt.vector.length > 5 ? ", ..." : ""}]`;
+        vector.innerHTML = highlightTerm(vectorText, lastSearch);
+        block.appendChild(vector);
+
+        const id = document.createElement("div");
+        id.innerHTML = `<strong>ID:</strong> ${highlightTerm(pt.id, lastSearch)}`;
+        block.appendChild(id);
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "delete-btn";
+        delBtn.textContent = "Delete Point";
+        delBtn.onclick = () => deletePoint(collection, pt.id, block);
+        block.appendChild(delBtn);
+
+        list.appendChild(block);
+      });
+
+      details.appendChild(list);
+      wrapper.appendChild(details);
+      return wrapper;
+    }
+
+    async function loadUI() {
+      app.innerHTML = "";
+      const collections = await fetchCollections();
+      if (!collections.length) {
+        app.innerHTML = "<p>No collections found.</p>";
+        return;
+      }
+
+      for (const name of collections) {
+        const loadingMsg = document.createElement("p");
+        loadingMsg.textContent = `Loading collection: ${name}...`;
+        app.appendChild(loadingMsg);
+
+        const points = await fetchVectors(name);
+        const node = createTreeNode(name, points);
+        app.replaceChild(node, loadingMsg);
+      }
+      filterPoints();
+    }
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      message.textContent = "";
+      const name = document.getElementById("collection-name").value.trim();
+      const sizeInput = document.getElementById("vector-size").value;
+      const vectorSize = Math.max(1, parseInt(sizeInput, 10) || 1536);
+
+      if (!name) {
+        message.textContent = "Collection name cannot be empty.";
+        message.style.color = "red";
+        return;
+      }
+      message.style.color = "black";
+      message.textContent = `Creating collection "${name}" with vector size ${vectorSize}...`;
+
+      try {
+        const res = await fetch(`${API_BASE}/collections/${encodeURIComponent(name)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            vectors: {
+              size: vectorSize,
+              distance: "Cosine"
+            }
+          })
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+          message.style.color = "green";
+          message.textContent = `Collection "${name}" created successfully.`;
+          form.reset();
+          // Reset vector size input to default after reset
+          document.getElementById("vector-size").value = 1536;
+          await loadUI();
+        } else {
+          throw new Error(JSON.stringify(data));
+        }
+      } catch (err) {
+        message.style.color = "red";
+        message.textContent = `Error creating collection: ${err.message}`;
+      }
+    };
+
+    async function viewCollectionConfig(collection) {
+      try {
+        const res = await fetch(`${API_BASE}/collections/${collection}`);
+        const data = await res.json();
+        if (data.status === "ok" && data.result) {
+          document.getElementById("modal-header").textContent = `${collection} Config`;
+          modalText.textContent = JSON.stringify(data.result, null, 2);
+          modalOverlay.style.display = "block";
+        } else {
+          alert("Failed to fetch collection config.");
+        }
+      } catch (err) {
+        alert("Error fetching config: " + err.message);
+      }
+    }
+
+    modalClose.onclick = () => {
+      modalOverlay.style.display = "none";
+    };
+
+    window.onclick = (event) => {
+      if (event.target === modalOverlay) {
+        modalOverlay.style.display = "none";
+      }
+    };
+
+    function highlightTerm(text, search) {
+      if (!search) return text;
+      // Escape regex special chars in search
+      const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return text.replace(
+        new RegExp(safe, "gi"),
+        match => `<span class="highlight">${match}</span>`
+      );
+    }
+
+    // Theme toggle logic
+    const themeToggle = document.getElementById("theme-toggle");
+    function setTheme(dark) {
+      document.body.classList.toggle("dark-mode", dark);
+      themeToggle.textContent = dark ? "☀" : "☾";
+      themeToggle.title = dark ? "Switch to light mode" : "Switch to dark mode";
+      localStorage.setItem("qdrant-theme", dark ? "dark" : "light");
+    }
+    // Load theme preference
+    setTheme(localStorage.getItem("qdrant-theme") === "dark");
+    themeToggle.onclick = () => setTheme(!document.body.classList.contains("dark-mode"));
+
+    let autorefreshTimer = null;
+
+    const autorefreshToggle = document.getElementById("autorefresh-toggle");
+    const autorefreshInterval = document.getElementById("autorefresh-interval");
+
+    function getOpenCollections() {
+      // Returns an array of collection names that are currently expanded
+      return Array.from(document.querySelectorAll("#app details"))
+        .filter(d => d.open)
+        .map(d => d.querySelector("summary span")?.textContent);
+    }
+
+    function setOpenCollections(openNames) {
+      // Expands collections whose names are in openNames
+      document.querySelectorAll("#app details").forEach(d => {
+        const name = d.querySelector("summary span")?.textContent;
+        d.open = openNames.includes(name);
+      });
+    }
+
+    function setupAutorefresh() {
+      if (autorefreshTimer) clearInterval(autorefreshTimer);
+      if (autorefreshToggle.checked) {
+        autorefreshTimer = setInterval(async () => {
+          const openNames = getOpenCollections();
+          await loadUI();
+          setOpenCollections(openNames);
+        }, Math.max(2, parseInt(autorefreshInterval.value, 10) || 10) * 1000);
+      }
+    }
+
+    autorefreshToggle.onchange = setupAutorefresh;
+    autorefreshInterval.onchange = setupAutorefresh;
+
+    // If enabled on load, start timer
+    if (autorefreshToggle.checked) setupAutorefresh();
+
+    loadUI().catch(err => {
+      app.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+    });
+  </script>
+</body>
+
+</html>
