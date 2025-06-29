@@ -1,6 +1,6 @@
 # Qdrant Browser
 
-A single-file, web-based UI for browsing, searching, and managing [Qdrant](https://qdrant.tech/) vector database collections and points.
+A simple, single-file, web-based UI for browsing, searching, and managing [Qdrant](https://qdrant.tech/) vector database collections and points.
 
 ## Features
 
