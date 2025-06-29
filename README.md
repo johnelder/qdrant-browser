@@ -42,5 +42,8 @@ MIT License
 
 ---
 
+**Author's Note:**  
+This tool is intended primarily for debugging, development, and internal use during app development. It is not an official Qdrant product and may not be suitable for production environments.
+
 **Not affiliated with Qdrant.**  
 For more information about Qdrant, visit [qdrant.tech](https://qdrant.tech/).
