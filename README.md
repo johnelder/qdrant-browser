@@ -34,7 +34,7 @@ A single-file, web-based UI for browsing, searching, and managing [Qdrant](https
 
 ## Screenshots
 
-![Qdrant Browser Screenshot](https://user-images.githubusercontent.com/your-screenshot.png)
+![Qdrant Browser Screenshot](https://github.com/johnelder/qdrant-browser/blob/main/Screenshot%202025-06-28%20173833.png)
 
 ## License
 
